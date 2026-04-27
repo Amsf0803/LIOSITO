@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIOSITO - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        function toggleTheme() {
+            const doc = document.documentElement;
+            const newTheme = doc.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            doc.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            const btn = document.getElementById('themeToggleBtn');
+            if(btn) btn.innerText = newTheme === 'dark' ? '☀️' : '🌙';
+            
+            Chart.defaults.color = newTheme === 'dark' ? '#aaaaaa' : '#5a5a5a';
+            for (let id in Chart.instances) {
+                Chart.instances[id].update();
+            }
+        }
+    </script>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="#" class="navbar-brand">🐻 LIOSITO</a>
+    <div class="nav-user">
+        <button id="themeToggleBtn" onclick="toggleTheme()" style="background:transparent; color:var(--text-main); font-size:1.5rem; padding:0; height:35px; width:35px; min-width:35px; border:none; box-shadow:none; cursor:pointer;" title="Modo oscuro/claro">🌙</button>
+        <span>¡Hola, {{ user.nombre_usuario }}!</span>
+        <span class="badge" style="background:#ffd700;">★ {{ user.puntos_totales }} pts</span>
+        <a href="{{ url_for('logout') }}">Salir</a>
+    </div>
+</nav>
+
+<div class="dashboard-container">
+    <!-- Left Column: Stats & Top 3 -->
+    <div class="column-left">
+        <div class="card">
+            <h2>🏆 Top 3 Chambeadores del Mes</h2>
+            <ul class="top-3-list">
+                {% for t in top3 %}
+                <li class="top-3-item">
+                    <span>
+                        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% else %}🥉{% endif %}
+                        {{ t.nombre_usuario }}
+                    </span>
+                    <strong>{{ t.total_mes }} pts</strong>
+                </li>
+                {% endfor %}
+                {% if not top3 %}
+                    <p style="color:var(--text-light);text-align:center;">Nadie ha hecho tareas aún. ¡Sé el primero!</p>
+                {% endif %}
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>⭐ Tus Skills</h2>
+            <canvas id="radarChart"></canvas>
+        </div>
+
+        <div class="card">
+            <h2>📈 Tu Progreso</h2>
+            <canvas id="lineChart"></canvas>
+        </div>
+
+        <!-- RAG KNOWLEDGE BASE -->
+        <div class="card" style="border-color: var(--neon-purple); background: var(--card-bg);">
+            <h2 style="font-family: 'Share Tech Mono', monospace; font-size:1.5rem; color:var(--neon-purple);">📚 CEREBRO LIOSITO [RAG]</h2>
+            <p style="font-family: 'Share Tech Mono', monospace; font-size:1rem; margin-top:0; color:var(--text-light); border-bottom: 1px dashed var(--neon-purple); padding-bottom: 10px;">
+               > REGISTROS_INDEXADOS: <strong id="kb_count" style="color:var(--neon-cyan);">{{ total_kb }}</strong>
+            </p>
+            
+            <div style="background: rgba(188, 19, 254, 0.05); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid rgba(188, 19, 254, 0.4); box-shadow: inset 0 0 10px rgba(188, 19, 254, 0.1);">
+                <h4 style="margin:0 0 10px 0; font-size:1rem; color:var(--neon-purple); font-family: 'Share Tech Mono', monospace;">> [1] SINCRONIZAR_GITHUB</h4>
+                <input type="text" id="rag_repo" placeholder="> Usuario/Repositorio" value="{{ user.github_user }}/liosito-repo" style="margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-purple);">
+                <input type="password" id="rag_pat" placeholder="> Personal Access Token (PAT)" style="margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-purple);">
+                <button class="btn-secondary" onclick="syncGithubRAG()" id="btn_sync_rag" style="padding:10px; font-size:0.9rem; font-family: 'Share Tech Mono', monospace;">[ INICIAR_ESCANEO ]</button>
+                <div id="rag_status" style="font-family: 'Share Tech Mono', monospace; font-size:0.85rem; margin-top:10px; min-height: 20px;"></div>
+            </div>
+
+            <div style="background: rgba(0, 243, 255, 0.05); padding:15px; border-radius:12px; border:1px solid rgba(0, 243, 255, 0.4); box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.1);">
+                <h4 style="margin:0 0 10px 0; font-size:1rem; color:var(--neon-cyan); font-family: 'Share Tech Mono', monospace;">> [2] INYECCIÓN_MANUAL</h4>
+                <input type="text" id="manual_title" placeholder="> Título (ej. Error en MySQL Port 3306)" style="margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-cyan);">
+                <textarea id="manual_content" placeholder="> Escribe el consejo o manual aquí..." style="height:70px; margin-bottom:8px; padding:10px; font-size:0.9rem; line-height:1.2; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-cyan);"></textarea>
+                <label style="display:flex; align-items:center; gap:5px; font-size:0.85rem; margin-bottom:10px; cursor:pointer; font-family: 'Share Tech Mono', monospace; color:var(--text-light);">
+                    <input type="checkbox" id="manual_is_error" style="width:auto; margin:0;">
+                    [X] Marcar como 'Log de Error Común'
+                </label>
+                <button onclick="addManualKB()" id="btn_manual_rag" style="padding:10px; font-size:0.9rem; background-color:var(--neon-cyan); color:#000; font-family: 'Share Tech Mono', monospace; border:1px solid var(--neon-cyan);">[ GUARDAR_REGISTRO ]</button>
+                <div id="manual_status" style="font-family: 'Share Tech Mono', monospace; font-size:0.85rem; margin-top:10px; min-height: 20px;"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Right Column: Tasks -->
+    <div class="column-right">
+        <div class="card">
+            <h2 style="justify-content: space-between;">
+                <span>📋 Tablero de Tareas</span>
+                <span style="font-size: 0.9rem; font-weight: normal; color:var(--text-light)">Pídele a Liosito que cree más</span>
+            </h2>
+            <div class="task-list">
+                {% for t in tareas %}
+                <div class="task-card {% if t.estado == 'completado' %}completado{% endif %}">
+                    <h3>{{ t.titulo }}</h3>
+                    <p style="font-size:0.9rem; margin-top:0;">{{ t.descripcion }}</p>
+                    <div style="margin-bottom: 0.5rem;">
+                        <span class="badge badge-peso">💪 Peso: {{ t.peso }}</span>
+                        <span class="badge badge-cat">{{ t.categoria }}</span>
+                        {% if t.id_asignado %}
+                            <span class="badge badge-user">👤 {{ t.nombre_usuario }}</span>
+                        {% else %}
+                            <span class="badge badge-user">👤 Sin asignar</span>
+                        {% endif %}
+                    </div>
+                    
+                    {% if t.estado != 'completado' and t.id_asignado == user.id %}
+                    <div class="task-actions">
+                        <button onclick="completarTarea({{ t.id }})" style="padding:5px; font-size:0.8rem;">✅ Completar</button>
+                        <button class="btn-secondary" onclick="openGithubModal({{ t.id }})" style="padding:5px; font-size:0.8rem;">🚀 Subir Avance</button>
+                    </div>
+                    {% elif t.estado == 'completado' %}
+                        <div style="margin-top:auto; font-weight:bold; color:var(--accent);">✓ Tarea completada</div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p>No hay tareas disponibles en este momento.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chatbot Liosito -->
+<div class="liosito-bot" onclick="toggleChat()">
+    <div class="liosito-icon">🐻</div>
+</div>
+
+<div class="chat-window" id="chatWindow">
+    <div class="chat-header">
+        🐻 Liosito (Project Manager)
+        <button onclick="toggleChat()" style="background:transparent; border:none; color:white; font-size:1.2rem; width:auto; padding:0; margin-left:auto;">×</button>
+    </div>
+    <div class="chat-body" id="chatBody">
+        <div class="message bot">¡Hola! Soy Liosito. Si quieres hacer una nueva función, descríbela y yo organizaré el trabajo.</div>
+    </div>
+    <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Escribe tu mensaje..." onkeypress="if(event.key === 'Enter') sendMessage()">
+        <button onclick="sendMessage()" style="background:var(--primary); color:white;">➤</button>
+    </div>
+</div>
+
+<!-- Modal GitHub -->
+<div class="modal-overlay" id="githubModal">
+    <div class="modal">
+        <h2>🚀 Subir Avance a GitHub</h2>
+        <p>Proporciona el código de tu avance y tu PAT para subirlo a una nueva rama.</p>
+        <input type="hidden" id="gh_tarea_id">
+        <input type="text" id="gh_repo" placeholder="Formato: usuario/repositorio" value="{{ user.github_user }}/liosito-repo" required>
+        <input type="password" id="gh_pat" placeholder="Personal Access Token (PAT)" required>
+        <textarea id="gh_codigo" placeholder="Pega aquí el código que desarrollaste..."></textarea>
+        <div style="display:flex; gap:10px;">
+            <button onclick="submitGithub()">Subir y Crear Rama</button>
+            <button class="btn-secondary" onclick="closeGithubModal()">Cancelar</button>
+        </div>
+        <p id="gh_status" style="font-size:0.9rem; margin-top:10px;"></p>
+    </div>
+</div>
+
+<script>
+    // Theme Initial State
+    window.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('themeToggleBtn');
+        if(btn) btn.innerText = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
+        if(document.documentElement.getAttribute('data-theme') === 'dark') {
+            Chart.defaults.color = '#aaaaaa';
+        }
+    });
+
+    // Configuración Chart.js
+    Chart.defaults.font.family = 'Quicksand';
+    
+    // Radar Chart - Skills
+    const ctxRadar = document.getElementById('radarChart').getContext('2d');
+    new Chart(ctxRadar, {
+        type: 'radar',
+        data: {
+            labels: ['Programación', 'Electrónica', 'Logística'],
+            datasets: [{
+                label: 'Nivel',
+                data: [{{ user.skill_programacion }}, {{ user.skill_electronica }}, {{ user.skill_logistica }}],
+                backgroundColor: 'rgba(255, 182, 193, 0.4)',
+                borderColor: '#ffb6c1',
+                pointBackgroundColor: '#ffb6c1',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            scales: {
+                r: { suggestedMin: 0, suggestedMax: 10, ticks: {stepSize: 2} }
+            }
+        }
+    });
+
+    // Line Chart - Points History
+    const ctxLine = document.getElementById('lineChart').getContext('2d');
+    new Chart(ctxLine, {
+        type: 'line',
+        data: {
+            labels: {{ hist_labels | tojson }},
+            datasets: [{
+                label: 'Puntos Acumulados',
+                data: {{ hist_data | tojson }},
+                borderColor: '#add8e6',
+                backgroundColor: 'rgba(173, 216, 230, 0.2)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // Funciones Tareas
+    async function completarTarea(id) {
+        if(!confirm("¿Seguro que completaste esta tarea?")) return;
+        const res = await fetch(`/api/tarea/completar/${id}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        });
+        if(res.ok) {
+            window.location.reload();
+        } else {
+            alert("Error completando la tarea.");
+        }
+    }
+
+    // Funciones Chatbot
+    function toggleChat() {
+        const cw = document.getElementById('chatWindow');
+        if(cw.classList.contains('open')){
+            cw.classList.remove('open');
+            document.querySelector('.liosito-icon').style.transform = 'scale(1)';
+        } else {
+            cw.classList.add('open');
+        }
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if(!text) return;
+
+        appendMessage(text, 'user');
+        input.value = '';
+
+        // Spinner Liosito
+        const loaderId = appendMessage("pensando...", 'bot');
+        
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({mensaje: text})
+            });
+            const data = await res.json();
+            
+            document.getElementById(loaderId).innerText = data.respuesta;
+            
+            if(data.tareas_creadas && data.tareas_creadas > 0) {
+                setTimeout(() => window.location.reload(), 2500); // reload to show new tasks
+            }
+        } catch(e) {
+            document.getElementById(loaderId).innerText = "Ups, hubo un problema conectando con Ollama.";
+        }
+    }
+
+    function appendMessage(text, type) {
+        const body = document.getElementById('chatBody');
+        const d = document.createElement('div');
+        d.className = `message ${type}`;
+        d.innerText = text;
+        
+        const id = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+        d.id = id;
+
+        body.appendChild(d);
+        body.scrollTop = body.scrollHeight;
+        return id;
+    }
+
+    // Modal GitHub
+    function openGithubModal(tarea_id) {
+        document.getElementById('gh_tarea_id').value = tarea_id;
+        document.getElementById('gh_status').innerText = "";
+        document.getElementById('gh_codigo').value = "";
+        document.getElementById('githubModal').classList.add('active');
+    }
+
+    function closeGithubModal() {
+        document.getElementById('githubModal').classList.remove('active');
+    }
+
+    async function submitGithub() {
+        const tid = document.getElementById('gh_tarea_id').value;
+        const repo = document.getElementById('gh_repo').value;
+        const pat = document.getElementById('gh_pat').value;
+        const codigo = document.getElementById('gh_codigo').value;
+        const btn = document.querySelector('#githubModal button');
+        
+        if(!pat || !codigo) {
+            alert("No olvides tu código y PAT");
+            return;
+        }
+
+        btn.disabled = true;
+        document.getElementById('gh_status').innerHTML = "Subiendo archivo... 🚀";
+        
+        try {
+            const res = await fetch('/api/github/push', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({tarea_id: tid, repositorio: repo, github_pat: pat, codigo_avanzado: codigo})
+            });
+            
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('gh_status').innerHTML = `¡Éxito! Rama creada: <b style="color:var(--accent)">${data.branch}</b>`;
+                setTimeout(closeGithubModal, 3000);
+            } else {
+                document.getElementById('gh_status').innerHTML = `<span class="error">${data.error}</span>`;
+            }
+        } catch(e) {
+            document.getElementById('gh_status').innerHTML = `<span class="error">Error interno.</span>`;
+        }
+        btn.disabled = false;
+    }
+
+    // Funciones KNOWLEDGE BASE RAG
+    async function syncGithubRAG() {
+        const repo = document.getElementById('rag_repo').value;
+        const pat = document.getElementById('rag_pat').value;
+        const btn = document.getElementById('btn_sync_rag');
+        const status = document.getElementById('rag_status');
+
+        if(!repo || !pat) {
+            status.innerHTML = "<span class='error'>> ERROR: REPO NO DEFINIDO</span>";
+            return;
+        }
+
+        btn.disabled = true;
+        status.innerHTML = "> SISTEMA_ESTUDIANDO... ENLAZANDO_CON_GITHUB... 🚀";
+        
+        try {
+            const res = await fetch('/api/conocimiento/github', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({repo: repo, pat: pat})
+            });
+            const data = await res.json();
+            if(data.success) {
+                status.innerHTML = `<span style="color:var(--neon-cyan)">> ÉXITO_SINCRONIZACIÓN: [${data.importados} BLOQUES]</span>`;
+                setTimeout(() => window.location.reload(), 2000);
+            } else {
+                status.innerHTML = `<span class='error'>> ERROR_VÍNCULO: ${data.error}</span>`;
+            }
+        } catch(e) {
+            status.innerHTML = `<span class='error'>> FALLO_CONEXIÓN_RAG_SERVER</span>`;
+        }
+        btn.disabled = false;
+    }
+
+    async function addManualKB() {
+        const titulo = document.getElementById('manual_title').value;
+        const content = document.getElementById('manual_content').value;
+        const isError = document.getElementById('manual_is_error').checked;
+        const btn = document.getElementById('btn_manual_rag');
+        const status = document.getElementById('manual_status');
+
+        if(!titulo || !content) {
+            status.innerHTML = "<span class='error'>> ERROR: CAMPOS_INCOMPLETOS</span>";
+            return;
+        }
+
+        btn.disabled = true;
+        status.innerHTML = "> GUARDANDO_ARCHIVO_NEURAL... 🧠";
+
+        try {
+            const res = await fetch('/api/conocimiento/manual', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({titulo: titulo, contenido: content, es_error: isError})
+            });
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('manual_title').value = '';
+                document.getElementById('manual_content').value = '';
+                status.innerHTML = `<span style="color:var(--neon-cyan)">> TRANSFERENCIA_COMPLETA: [OK]</span>`;
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                status.innerHTML = `<span class='error'>> ERROR_ESCRITURA_RAG</span>`;
+            }
+        } catch(e) {
+            status.innerHTML = `<span class='error'>> FALLO_CONEXIÓN_SERVER</span>`;
+        }
+        btn.disabled = false;
+    }
+</script>
+
+</body>
+</html>
