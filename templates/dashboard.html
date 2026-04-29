@@ -6,6 +6,7 @@
     <title>LIOSITO - Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/LIA_Mini.png') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const savedTheme = localStorage.getItem('theme') || 'light';
@@ -24,6 +25,54 @@
             }
         }
     </script>
+    <style>
+        /* Estilos del Modal de Detalles */
+        .modal-liosito {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+            width: 90%; max-width: 600px;
+        }
+        .btn-neon {
+            background: transparent;
+            color: var(--neon-cyan);
+            border: 1px solid var(--neon-cyan);
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            transition: all 0.3s ease;
+        }
+        .btn-neon:hover {
+            background: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+        .btn-danger {
+            background: transparent;
+            color: #ff4444;
+            border: 1px solid #ff4444;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+        .btn-danger:hover {
+            background: #ff4444;
+            color: white;
+            box-shadow: 0 0 10px #ff4444;
+        }
+    </style>
 </head>
 <body>
 
@@ -32,13 +81,12 @@
     <div class="nav-user">
         <button id="themeToggleBtn" onclick="toggleTheme()" style="background:transparent; color:var(--text-main); font-size:1.5rem; padding:0; height:35px; width:35px; min-width:35px; border:none; box-shadow:none; cursor:pointer;" title="Modo oscuro/claro">🌙</button>
         <span>¡Hola, {{ user.nombre_usuario }}!</span>
-        <span class="badge" style="background:#ffd700;">★ {{ user.puntos_totales }} pts</span>
+        <span class="badge" style="background:#ffd700; color: #000;">★ {{ user.puntos_totales }} pts</span>
         <a href="{{ url_for('logout') }}">Salir</a>
     </div>
 </nav>
 
 <div class="dashboard-container">
-    <!-- Left Column: Stats & Top 3 -->
     <div class="column-left">
         <div class="card">
             <h2>🏆 Top 3 Chambeadores del Mes</h2>
@@ -68,7 +116,6 @@
             <canvas id="lineChart"></canvas>
         </div>
 
-        <!-- RAG KNOWLEDGE BASE -->
         <div class="card" style="border-color: var(--neon-purple); background: var(--card-bg);">
             <h2 style="font-family: 'Share Tech Mono', monospace; font-size:1.5rem; color:var(--neon-purple);">📚 CEREBRO LIOSITO [RAG]</h2>
             <p style="font-family: 'Share Tech Mono', monospace; font-size:1rem; margin-top:0; color:var(--text-light); border-bottom: 1px dashed var(--neon-purple); padding-bottom: 10px;">
@@ -77,39 +124,37 @@
             
             <div style="background: rgba(188, 19, 254, 0.05); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid rgba(188, 19, 254, 0.4); box-shadow: inset 0 0 10px rgba(188, 19, 254, 0.1);">
                 <h4 style="margin:0 0 10px 0; font-size:1rem; color:var(--neon-purple); font-family: 'Share Tech Mono', monospace;">> [1] SINCRONIZAR_GITHUB</h4>
-                <input type="text" id="rag_repo" placeholder="> Usuario/Repositorio" value="{{ user.github_user }}/liosito-repo" style="margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-purple);">
-                <input type="password" id="rag_pat" placeholder="> Personal Access Token (PAT)" style="margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-purple);">
-                <button class="btn-secondary" onclick="syncGithubRAG()" id="btn_sync_rag" style="padding:10px; font-size:0.9rem; font-family: 'Share Tech Mono', monospace;">[ INICIAR_ESCANEO ]</button>
+                <input type="text" id="rag_repo" placeholder="> Usuario/Repositorio" value="{{ user.github_user }}/liosito-repo" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-purple);">
+                <input type="password" id="rag_pat" placeholder="> Personal Access Token (PAT)" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-purple);">
+                <button class="btn-secondary" onclick="syncGithubRAG()" id="btn_sync_rag" style="width: 100%; padding:10px; font-size:0.9rem; font-family: 'Share Tech Mono', monospace;">[ INICIAR_ESCANEO ]</button>
                 <div id="rag_status" style="font-family: 'Share Tech Mono', monospace; font-size:0.85rem; margin-top:10px; min-height: 20px;"></div>
             </div>
 
             <div style="background: rgba(0, 243, 255, 0.05); padding:15px; border-radius:12px; border:1px solid rgba(0, 243, 255, 0.4); box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.1);">
                 <h4 style="margin:0 0 10px 0; font-size:1rem; color:var(--neon-cyan); font-family: 'Share Tech Mono', monospace;">> [2] INYECCIÓN_MANUAL</h4>
-                <input type="text" id="manual_title" placeholder="> Título (ej. Error en MySQL Port 3306)" style="margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-cyan);">
-                <textarea id="manual_content" placeholder="> Escribe el consejo o manual aquí..." style="height:70px; margin-bottom:8px; padding:10px; font-size:0.9rem; line-height:1.2; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-cyan);"></textarea>
+                <input type="text" id="manual_title" placeholder="> Título (ej. Error en MySQL)" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-cyan);">
+                <textarea id="manual_content" placeholder="> Escribe el consejo o manual aquí..." style="width: 100%; height:70px; margin-bottom:8px; padding:10px; font-size:0.9rem; line-height:1.2; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-cyan);"></textarea>
                 <label style="display:flex; align-items:center; gap:5px; font-size:0.85rem; margin-bottom:10px; cursor:pointer; font-family: 'Share Tech Mono', monospace; color:var(--text-light);">
                     <input type="checkbox" id="manual_is_error" style="width:auto; margin:0;">
                     [X] Marcar como 'Log de Error Común'
                 </label>
-                <button onclick="addManualKB()" id="btn_manual_rag" style="padding:10px; font-size:0.9rem; background-color:var(--neon-cyan); color:#000; font-family: 'Share Tech Mono', monospace; border:1px solid var(--neon-cyan);">[ GUARDAR_REGISTRO ]</button>
+                <button onclick="addManualKB()" id="btn_manual_rag" style="width: 100%; padding:10px; font-size:0.9rem; background-color:var(--neon-cyan); color:#000; font-family: 'Share Tech Mono', monospace; border:1px solid var(--neon-cyan);">[ GUARDAR_REGISTRO ]</button>
                 <div id="manual_status" style="font-family: 'Share Tech Mono', monospace; font-size:0.85rem; margin-top:10px; min-height: 20px;"></div>
             </div>
 
         </div>
     </div>
 
-    <!-- Right Column: Tasks -->
     <div class="column-right">
         <div class="card">
-            <h2 style="justify-content: space-between;">
+            <h2 style="display: flex; justify-content: space-between; align-items: center;">
                 <span>📋 Tablero de Tareas</span>
-                <span style="font-size: 0.9rem; font-weight: normal; color:var(--text-light)">Pídele a Liosito que cree más</span>
+                <span style="font-size: 0.9rem; font-weight: normal; color:var(--text-light)">Pídele a Liosito que asigne trabajo</span>
             </h2>
             <div class="task-list">
                 {% for t in tareas %}
-                <div class="task-card {% if t.estado == 'completado' %}completado{% endif %}">
+                <div class="task-card {% if t.estado == 'completado' %}completado{% endif %}" data-categoria="{{ t.categoria }}">
                     <h3>{{ t.titulo }}</h3>
-                    <p style="font-size:0.9rem; margin-top:0;">{{ t.descripcion }}</p>
                     <div style="margin-bottom: 0.5rem;">
                         <span class="badge badge-peso">💪 Peso: {{ t.peso }}</span>
                         <span class="badge badge-cat">{{ t.categoria }}</span>
@@ -120,58 +165,91 @@
                         {% endif %}
                     </div>
                     
-                    {% if t.estado != 'completado' and t.id_asignado == user.id %}
-                    <div class="task-actions">
-                        <button onclick="completarTarea({{ t.id }})" style="padding:5px; font-size:0.8rem;">✅ Completar</button>
-                        <button class="btn-secondary" onclick="openGithubModal({{ t.id }})" style="padding:5px; font-size:0.8rem;">🚀 Subir Avance</button>
+                    <div class="task-actions" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button onclick="verDetalle('{{ t.titulo | escape }}', '{{ t.descripcion | escape }}')" class="btn-neon" style="flex: 1;">
+                            LEER INSTRUCCIONES
+                        </button>
+                        
+                        {% if t.estado != 'completado' and t.id_asignado == user.id %}
+                            <button onclick="completarTarea({{ t.id }})" style="padding:8px; font-size:0.8rem; background: var(--success); color: white; border: none; border-radius: 5px; flex: 1;">✅ Completar</button>
+                            <button class="btn-secondary" onclick="openGithubModal({{ t.id }})" style="padding:8px; font-size:0.8rem; flex: 1;">🚀 Subir Avance</button>
+                        {% elif t.estado == 'completado' %}
+                            <div style="width: 100%; text-align: center; font-weight:bold; color:var(--success); margin-top: 5px;">✓ Tarea completada</div>
+                        {% endif %}
                     </div>
-                    {% elif t.estado == 'completado' %}
-                        <div style="margin-top:auto; font-weight:bold; color:var(--accent);">✓ Tarea completada</div>
-                    {% endif %}
                 </div>
                 {% else %}
-                <p>No hay tareas disponibles en este momento.</p>
+                <p>No hay tareas disponibles en este momento. ¡Dile a Liosito que organice algo!</p>
                 {% endfor %}
             </div>
         </div>
     </div>
 </div>
 
-<!-- Chatbot Liosito -->
 <div class="liosito-bot" onclick="toggleChat()">
     <div class="liosito-icon">🐻</div>
 </div>
 
 <div class="chat-window" id="chatWindow">
     <div class="chat-header">
-        🐻 Liosito (Project Manager)
-        <button onclick="toggleChat()" style="background:transparent; border:none; color:white; font-size:1.2rem; width:auto; padding:0; margin-left:auto;">×</button>
+        🐻 Liosito (Oráculo & PM)
+        <button onclick="toggleChat()" style="background:transparent; border:none; color:white; font-size:1.2rem; width:auto; padding:0; margin-left:auto; cursor:pointer;">×</button>
     </div>
     <div class="chat-body" id="chatBody">
-        <div class="message bot">¡Hola! Soy Liosito. Si quieres hacer una nueva función, descríbela y yo organizaré el trabajo.</div>
+        <div class="message bot">¡Hola! Soy Liosito. Pregúntame sobre el código de LIA o pídeme que asigne tareas. 🐻💻</div>
     </div>
     <div class="chat-input">
         <input type="text" id="chatInput" placeholder="Escribe tu mensaje..." onkeypress="if(event.key === 'Enter') sendMessage()">
-        <button onclick="sendMessage()" style="background:var(--primary); color:white;">➤</button>
+        <button onclick="sendMessage()" style="background:var(--neon-purple); color:white; border:none;">➤</button>
     </div>
 </div>
 
-<!-- Modal GitHub -->
 <div class="modal-overlay" id="githubModal">
     <div class="modal">
         <h2>🚀 Subir Avance a GitHub</h2>
         <p>Proporciona el código de tu avance y tu PAT para subirlo a una nueva rama.</p>
         <input type="hidden" id="gh_tarea_id">
-        <input type="text" id="gh_repo" placeholder="Formato: usuario/repositorio" value="{{ user.github_user }}/liosito-repo" required>
-        <input type="password" id="gh_pat" placeholder="Personal Access Token (PAT)" required>
-        <textarea id="gh_codigo" placeholder="Pega aquí el código que desarrollaste..."></textarea>
+        <input type="text" id="gh_repo" placeholder="Formato: usuario/repositorio" value="{{ user.github_user }}/liosito-repo" required style="width: 100%; margin-bottom: 10px; padding: 10px;">
+        <input type="password" id="gh_pat" placeholder="Personal Access Token (PAT)" required style="width: 100%; margin-bottom: 10px; padding: 10px;">
+        <textarea id="gh_codigo" placeholder="Pega aquí el código que desarrollaste..." style="width: 100%; height: 100px; margin-bottom: 10px; padding: 10px;"></textarea>
         <div style="display:flex; gap:10px;">
-            <button onclick="submitGithub()">Subir y Crear Rama</button>
-            <button class="btn-secondary" onclick="closeGithubModal()">Cancelar</button>
+            <button onclick="submitGithub()" style="padding: 10px 20px;">Subir y Crear Rama</button>
+            <button class="btn-secondary" onclick="closeGithubModal()" style="padding: 10px 20px;">Cancelar</button>
         </div>
         <p id="gh_status" style="font-size:0.9rem; margin-top:10px;"></p>
     </div>
 </div>
+
+<div id="modalDetalle" class="modal-liosito" style="display:none;">
+    <div class="modal-content">
+        <h2 id="modalTitulo" style="color: var(--neon-cyan); margin-top: 0;"></h2>
+        <p id="modalDesc" style="font-family: 'Share Tech Mono', monospace; white-space: pre-wrap; color: var(--text-main); font-size: 1.1rem; line-height: 1.5; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border-left: 3px solid var(--neon-cyan);"></p>
+        <div style="text-align: right;">
+            <button onclick="cerrarModal()" class="btn-danger">CERRAR DETALLES</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- MODAL DE DETALLES ---
+function verDetalle(titulo, desc) {
+    document.getElementById('modalTitulo').innerText = titulo;
+    // Manejar casos donde la IA no manda descripción
+    document.getElementById('modalDesc').innerText = desc ? desc : "No hay instrucciones detalladas para esta tarea. Habla con Liosito si tienes dudas.";
+    document.getElementById('modalDetalle').style.display = 'flex';
+}
+
+function cerrarModal() {
+    document.getElementById('modalDetalle').style.display = 'none';
+}
+
+// Cerrar modal al hacer clic fuera del contenido
+document.getElementById('modalDetalle').addEventListener('click', function(e) {
+    if (e.target === this) {
+        cerrarModal();
+    }
+});
+</script>
 
 <script>
     // Theme Initial State
@@ -264,7 +342,7 @@
         input.value = '';
 
         // Spinner Liosito
-        const loaderId = appendMessage("pensando...", 'bot');
+        const loaderId = appendMessage("pensando... 🐻", 'bot');
         
         try {
             const res = await fetch('/api/chat', {
@@ -277,10 +355,10 @@
             document.getElementById(loaderId).innerText = data.respuesta;
             
             if(data.tareas_creadas && data.tareas_creadas > 0) {
-                setTimeout(() => window.location.reload(), 2500); // reload to show new tasks
+                setTimeout(() => window.location.reload(), 3000); // Darle tiempo al usuario de leer antes de recargar
             }
         } catch(e) {
-            document.getElementById(loaderId).innerText = "Ups, hubo un problema conectando con Ollama.";
+            document.getElementById(loaderId).innerText = "Ups, hubo un problema conectando con mi cerebro Ollama.";
         }
     }
 
@@ -334,13 +412,13 @@
             
             const data = await res.json();
             if(data.success) {
-                document.getElementById('gh_status').innerHTML = `¡Éxito! Rama creada: <b style="color:var(--accent)">${data.branch}</b>`;
+                document.getElementById('gh_status').innerHTML = `¡Éxito! Rama creada: <b style="color:var(--neon-cyan)">${data.branch}</b>`;
                 setTimeout(closeGithubModal, 3000);
             } else {
                 document.getElementById('gh_status').innerHTML = `<span class="error">${data.error}</span>`;
             }
         } catch(e) {
-            document.getElementById('gh_status').innerHTML = `<span class="error">Error interno.</span>`;
+            document.getElementById('gh_status').innerHTML = `<span class="error">Error interno de red.</span>`;
         }
         btn.disabled = false;
     }
@@ -353,7 +431,7 @@
         const status = document.getElementById('rag_status');
 
         if(!repo || !pat) {
-            status.innerHTML = "<span class='error'>> ERROR: REPO NO DEFINIDO</span>";
+            status.innerHTML = "<span class='error'>> ERROR: REPO O PAT NO DEFINIDOS</span>";
             return;
         }
 

@@ -12,7 +12,6 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-# Secret key for sessions
 app.secret_key = 'liosito_super_secret_key_pastel'
 
 DATABASE = 'liosito.db'
@@ -36,59 +35,12 @@ def init_db():
         db = get_db()
         cursor = db.cursor()
         
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre_usuario TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            github_user TEXT,
-            puntos_totales INTEGER DEFAULT 0,
-            skill_programacion INTEGER DEFAULT 1,
-            skill_electronica INTEGER DEFAULT 1,
-            skill_logistica INTEGER DEFAULT 1,
-            fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tareas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            titulo TEXT NOT NULL,
-            descripcion TEXT,
-            categoria TEXT NOT NULL,
-            peso INTEGER NOT NULL,
-            estado TEXT DEFAULT 'pendiente',
-            id_asignado INTEGER,
-            fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(id_asignado) REFERENCES usuarios(id)
-        )
-        ''')
-
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS historial_puntos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_usuario INTEGER NOT NULL,
-            puntos_ganados INTEGER NOT NULL,
-            descripcion_accion TEXT,
-            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(id_usuario) REFERENCES usuarios(id)
-        )
-        ''')
-
-        # Tabla de CONOCIMIENTO (RAG)
-        cursor.execute('''
-        CREATE TABLE IF NOT EXISTS conocimiento (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            proyecto_nombre TEXT NOT NULL,
-            contenido TEXT NOT NULL,
-            fuente TEXT NOT NULL,
-            fecha_indexado TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        ''')
-
+        cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (id INTEGER PRIMARY KEY AUTOINCREMENT, nombre_usuario TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, github_user TEXT, puntos_totales INTEGER DEFAULT 0, skill_programacion INTEGER DEFAULT 1, skill_electronica INTEGER DEFAULT 1, skill_logistica INTEGER DEFAULT 1, fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS tareas (id INTEGER PRIMARY KEY AUTOINCREMENT, titulo TEXT NOT NULL, descripcion TEXT, categoria TEXT NOT NULL, peso INTEGER NOT NULL, estado TEXT DEFAULT 'pendiente', id_asignado INTEGER, fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(id_asignado) REFERENCES usuarios(id))''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS historial_puntos (id INTEGER PRIMARY KEY AUTOINCREMENT, id_usuario INTEGER NOT NULL, puntos_ganados INTEGER NOT NULL, descripcion_accion TEXT, fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(id_usuario) REFERENCES usuarios(id))''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS conocimiento (id INTEGER PRIMARY KEY AUTOINCREMENT, proyecto_nombre TEXT NOT NULL, contenido TEXT NOT NULL, fuente TEXT NOT NULL, fecha_indexado TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         db.commit()
 
-# Decorator para requerir login
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -96,6 +48,8 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
+# === RUTAS DE AUTENTICACIÓN ===
 
 @app.route('/')
 def index():
@@ -108,7 +62,6 @@ def login():
     if request.method == 'POST':
         nombre_usuario = request.form.get('nombre_usuario')
         password = request.form.get('password')
-        
         db = get_db()
         user = db.execute('SELECT * FROM usuarios WHERE nombre_usuario = ?', (nombre_usuario,)).fetchone()
         
@@ -117,7 +70,6 @@ def login():
             session['nombre_usuario'] = user['nombre_usuario']
             return redirect(url_for('dashboard'))
         return render_template('login.html', error='Credenciales incorrectas o usuario no existe.')
-
     return render_template('login.html')
 
 @app.route('/register', methods=['POST'])
@@ -125,7 +77,6 @@ def register():
     nombre_usuario = request.form.get('nombre_usuario')
     password = request.form.get('password')
     github_user = request.form.get('github_user', '')
-    
     s_prog = int(request.form.get('skill_programacion', 5) or 5)
     s_elec = int(request.form.get('skill_electronica', 3) or 3)
     s_log = int(request.form.get('skill_logistica', 4) or 4)
@@ -134,18 +85,17 @@ def register():
     if db.execute('SELECT id FROM usuarios WHERE nombre_usuario = ?', (nombre_usuario,)).fetchone():
         return render_template('login.html', error_register='Usuario ya existe')
     
-    db.execute('''
-        INSERT INTO usuarios (nombre_usuario, password_hash, github_user, skill_programacion, skill_electronica, skill_logistica)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (nombre_usuario, generate_password_hash(password), github_user, s_prog, s_elec, s_log))
+    db.execute('INSERT INTO usuarios (nombre_usuario, password_hash, github_user, skill_programacion, skill_electronica, skill_logistica) VALUES (?, ?, ?, ?, ?, ?)', 
+               (nombre_usuario, generate_password_hash(password), github_user, s_prog, s_elec, s_log))
     db.commit()
-    
     return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+# === DASHBOARD Y TAREAS ===
 
 @app.route('/dashboard')
 @login_required
@@ -154,23 +104,9 @@ def dashboard():
     user = db.execute('SELECT * FROM usuarios WHERE id = ?', (session['user_id'],)).fetchone()
     
     current_month = datetime.now().strftime('%Y-%m')
-    top3_query = '''
-    SELECT u.nombre_usuario, SUM(h.puntos_ganados) as total_mes
-    FROM historial_puntos h
-    JOIN usuarios u ON u.id = h.id_usuario
-    WHERE strftime('%Y-%m', h.fecha) = ?
-    GROUP BY u.id
-    ORDER BY total_mes DESC
-    LIMIT 3
-    '''
-    top3 = db.execute(top3_query, (current_month,)).fetchall()
+    top3 = db.execute('''SELECT u.nombre_usuario, SUM(h.puntos_ganados) as total_mes FROM historial_puntos h JOIN usuarios u ON u.id = h.id_usuario WHERE strftime('%Y-%m', h.fecha) = ? GROUP BY u.id ORDER BY total_mes DESC LIMIT 3''', (current_month,)).fetchall()
     
-    tareas_raw = db.execute('''
-        SELECT t.*, u.nombre_usuario 
-        FROM tareas t
-        LEFT JOIN usuarios u ON t.id_asignado = u.id
-        ORDER BY t.estado != 'completado' DESC, t.fecha_creacion DESC
-    ''').fetchall()
+    tareas_raw = db.execute('''SELECT t.*, u.nombre_usuario FROM tareas t LEFT JOIN usuarios u ON t.id_asignado = u.id ORDER BY t.estado != 'completado' DESC, t.fecha_creacion DESC''').fetchall()
     
     historial = db.execute('SELECT * FROM historial_puntos WHERE id_usuario = ? ORDER BY fecha ASC LIMIT 20', (session['user_id'],)).fetchall()
     hist_labels = [row['fecha'].split(' ')[0] for row in historial]
@@ -180,9 +116,8 @@ def dashboard():
         acum += row['puntos_ganados']
         hist_data.append(acum)
 
-    # Revisar cantidad de conocimiento para indicador visual simple (opcional)
-    stats_conocimiento_raw = db.execute('SELECT COUNT(id) as total_notas FROM conocimiento').fetchone()
-    total_kb = stats_conocimiento_raw['total_notas'] if stats_conocimiento_raw else 0
+    stats = db.execute('SELECT COUNT(id) as total_notas FROM conocimiento').fetchone()
+    total_kb = stats['total_notas'] if stats else 0
 
     return render_template('dashboard.html', user=user, top3=top3, tareas=tareas_raw, hist_labels=hist_labels, hist_data=hist_data, total_kb=total_kb)
 
@@ -191,18 +126,13 @@ def dashboard():
 def completar_tarea(tarea_id):
     db = get_db()
     tarea = db.execute('SELECT * FROM tareas WHERE id = ?', (tarea_id,)).fetchone()
-    if not tarea:
-        return jsonify({'error': 'Tarea no existe'}), 404
-        
-    if tarea['estado'] == 'completado':
-        return jsonify({'error': 'Ya está completada'}), 400
+    if not tarea: return jsonify({'error': 'Tarea no existe'}), 404
+    if tarea['estado'] == 'completado': return jsonify({'error': 'Ya está completada'}), 400
 
     db.execute('UPDATE tareas SET estado = "completado" WHERE id = ?', (tarea_id,))
-    
     if tarea['id_asignado']:
         db.execute('UPDATE usuarios SET puntos_totales = puntos_totales + ? WHERE id = ?', (tarea['peso'], tarea['id_asignado']))
-        db.execute('INSERT INTO historial_puntos (id_usuario, puntos_ganados, descripcion_accion) VALUES (?, ?, ?)',
-                   (tarea['id_asignado'], tarea['peso'], f"Completó tarea: {tarea['titulo']}"))
+        db.execute('INSERT INTO historial_puntos (id_usuario, puntos_ganados, descripcion_accion) VALUES (?, ?, ?)', (tarea['id_asignado'], tarea['peso'], f"Completó tarea: {tarea['titulo']}"))
     db.commit()
     return jsonify({'success': True})
 
@@ -214,52 +144,35 @@ def sync_github():
     data = request.json
     repo = data.get('repo')
     pat = data.get('pat', '')
-
-    if not repo:
-        return jsonify({"error": "Repositorio no especificado"}), 400
+    if not repo: return jsonify({"error": "Repositorio no especificado"}), 400
 
     headers = {'Accept': 'application/vnd.github.v3+json'}
-    if pat:
-        headers['Authorization'] = f'token {pat}'
+    if pat: headers['Authorization'] = f'token {pat}'
 
     try:
-        # 1. Obtener main tree
         url_tree = f"https://api.github.com/repos/{repo}/git/trees/main?recursive=1"
         res = requests.get(url_tree, headers=headers)
-        
-        # Fallback a master si no existe main
         if res.status_code == 404:
             url_tree = f"https://api.github.com/repos/{repo}/git/trees/master?recursive=1"
             res = requests.get(url_tree, headers=headers)
 
-        if res.status_code != 200:
-            return jsonify({"error": f"Error de GitHub: {res.json().get('message', res.status_code)}"}), 400
+        if res.status_code != 200: return jsonify({"error": f"Error: {res.json().get('message', res.status_code)}"}), 400
 
-        tree = res.json().get('tree', [])
         valid_exts = ('.py', '.ino', '.cpp', '.h', '.sql', '.js', '.html')
-        
         archivos_importados = 0
         db = get_db()
 
-        for item in tree:
+        for item in res.json().get('tree', []):
             if item['type'] == 'blob' and item['path'].endswith(valid_exts):
-                # Descargar contedido Raw
                 raw_url = f"https://raw.githubusercontent.com/{repo}/main/{item['path']}"
                 file_res = requests.get(raw_url, headers=headers)
-                
-                # Fallback master
                 if file_res.status_code == 404:
                     raw_url = f"https://raw.githubusercontent.com/{repo}/master/{item['path']}"
                     file_res = requests.get(raw_url, headers=headers)
 
                 if file_res.status_code == 200:
-                    contenido_texto = file_res.text
-                    texto_completo = f"Archivo: {item['path']}, Proyecto: {repo}\n{contenido_texto}"
-                    
-                    db.execute('''
-                        INSERT INTO conocimiento (proyecto_nombre, contenido, fuente) 
-                        VALUES (?, ?, ?)
-                    ''', (repo, texto_completo, 'github'))
+                    texto_completo = f"Archivo: {item['path']}, Proyecto: {repo}\n{file_res.text}"
+                    db.execute('INSERT INTO conocimiento (proyecto_nombre, contenido, fuente) VALUES (?, ?, ?)', (repo, texto_completo, 'github'))
                     archivos_importados += 1
         
         db.commit()
@@ -275,129 +188,86 @@ def add_manual():
     contenido = data.get('contenido', '')
     es_error = data.get('es_error', False)
 
-    if not contenido:
-        return jsonify({"error": "Contenido vacío"}), 400
+    if not contenido: return jsonify({"error": "Contenido vacío"}), 400
 
     prefijo = "LOG DE ERROR COMÚN:" if es_error else "NOTA TÉCNICA:"
     autor = session.get('nombre_usuario', 'Anónimo')
-    
     texto_ingresado = f"{prefijo} {titulo}. Añadido por: {autor}. Detalle: {contenido}"
 
     db = get_db()
-    db.execute('INSERT INTO conocimiento (proyecto_nombre, contenido, fuente) VALUES (?, ?, ?)',
-               (f"Wiki-{autor}", texto_ingresado, 'manual'))
+    db.execute('INSERT INTO conocimiento (proyecto_nombre, contenido, fuente) VALUES (?, ?, ?)', (f"Wiki-{autor}", texto_ingresado, 'manual'))
     db.commit()
-    
     return jsonify({"success": True, "message": "Conocimiento añadido a Liosito."})
 
 @app.route('/api/chat', methods=['POST'])
 @login_required
 def api_chat():
-    data = request.json
-    mensaje_usuario = data.get('mensaje', '')
-
+    mensaje_usuario = request.json.get('mensaje', '').strip()
     db = get_db()
     
-    # 1. Búsqueda RAG simple
-    # Ignorar palabras cortas y stopwords simples en español
-    stopwords = {'el', 'la', 'los', 'las', 'un', 'una', 'y', 'o', 'en', 'de', 'que', 'a', 'por', 'para', 'con', 'sin', 'como', 'queremos', 'necesito'}
-    palabras = [p.lower() for p in re.findall(r'\b\w+\b', mensaje_usuario) if p.lower() not in stopwords and len(p) > 2]
-    
-    contexto_encontrado = []
-    
+    # Búsqueda RAG
+    palabras = [p for p in mensaje_usuario.split() if len(p) > 3]
+    contexto_str = ""
     if palabras:
-        query_conditions = " OR ".join(["contenido LIKE ?"] * len(palabras))
-        params = [f"%{p}%" for p in palabras]
-        
-        # Buscar en la BDD con coincidencia individual de keywords
-        resultados = db.execute(f'''
-            SELECT contenido FROM conocimiento 
-            WHERE {query_conditions}
-            LIMIT 4
-        ''', params).fetchall()
-        
-        for res in resultados:
-            contexto_encontrado.append(res['contenido'][:800]) # Limitamos contexto para no ahogar RAM
-            
-    contexto_str = "\n\n---\n\n".join(contexto_encontrado) if contexto_encontrado else "No se encontraron datos previos en el laboratorio."
+        query = " OR ".join(["contenido LIKE ?"] * len(palabras))
+        rows = db.execute(f"SELECT contenido FROM conocimiento WHERE {query} LIMIT 3", [f"%{p}%" for p in palabras]).fetchall()
+        contexto_str = "\n---\n".join([r['contenido'][:500] for r in rows])
 
+    # Prompt Híbrido Estricto y Detallado
     prompt = f"""
-    Eres "Liosito" (un osito muy tierno e inteligente). Eres el Oráculo y Project Manager de un laboratorio tecnológico.
-    Ayudas a los humanos con dudas basándote ESTRICTAMENTE EN LOS SIGUIENTES REGISTROS TÉCNICOS RECUPERADOS:
-    <CONTEXTO_RECUPERADO>
-    {contexto_str}
-    </CONTEXTO_RECUPERADO>
-    
-    INSTRUCCIONES DEL ORÁCULO:
-    1. Si el contexto contiene la respuesta a la duda del usuario: EVITA LOS SALUDOS GENÉRICOS (no digas "¡Hola! He revisado"). Da la solución técnica directamente manteniendo tu toque cute.
-    2. ¡¡BÚSQUEDA AGRESIVA DE AUTORES!!: Si en el contexto aparece una mención de que alguien (ej. Michel, Juan, Amsf0803) resolvió un error o documentó una nota, DEBES MENCIONARLO OBLIGATORIAMENTE COMO AUTORIDAD (ej. "¡Michel ya pasó por esto! Según sus notas...").
-    3. Si NO sabes la respuesta basándote en el contexto, confiesa tímidamente que tu memoria no tiene esa información indexada.
-    4. Opcional: Si el usuario te pide CREAR o ASIGNAR tareas, agrega AL FINAL de tu respuesta humana un bloque JSON EXACTAMENTE así (Pesos Fibonacci: 1, 3, 5, 8, 13):
-    ```json
-    {{"tareas": [{{"titulo": "Cortar", "peso": 5, "categoria": "logistica"}}]}}
-    ```
+    SISTEMA: Eres LIOSITO, el Project Manager de LIA.
+    CONTEXTO TÉCNICO: {contexto_str if contexto_str else "Sin datos previos."}
 
-    Mensaje humano: "{mensaje_usuario}"
+    REGLA 1: EXPLICA CON DETALLE. Antes de dar tareas, da una explicación técnica profunda, paso a paso, sobre el problema y cómo resolverlo. Si el contexto menciona a un autor, cítalo.
+    REGLA 2: OBEDECE LAS INDICACIONES. Si el usuario te da instrucciones específicas sobre cómo quiere que se haga la tarea, acátalas estrictamente en tu respuesta.
+    REGLA 3: Si el usuario pide una TAREA, DEBES generar un JSON al final.
+    REGLA 4: Si pide una tarea de "varios integrantes", divide el problema en SUBTAREAS (mínimo 3) de diferentes categorías (programacion, electronica, logistica).
+
+    FORMATO JSON OBLIGATORIO (Asegúrate de que la "descripcion" sea MUY detallada, paso a paso):
+    ```json
+    {{"tareas": [
+        {{"titulo": "Reparar Sensores", "descripcion": "1. Desconectar alimentación. 2. Revisar cableado de pines. 3. Calibrar lectura analógica...", "peso": 8, "categoria": "electronica"}},
+        {{"titulo": "Ajuste de Software", "descripcion": "1. Abrir app.py. 2. Filtrar picos altos mediante software con una media móvil...", "peso": 5, "categoria": "programacion"}}
+    ]}}
+    ```
+    Mensaje del usuario: "{mensaje_usuario}"
     """
 
     try:
         r = requests.post(OLLAMA_URL, json={
-            "model": "llama3.2:3b",
-            "prompt": prompt,
-            "stream": False,
-            "keep_alive": "1h",
+            "model": "llama3.2:3b", 
+            "prompt": prompt, 
+            "stream": False, 
             "options": {
-                "num_ctx": 2048, # Subimos el context para aguantar el RAG Documental
-                "temperature": 0.3,
-                "num_predict": 400 # Permitimos respuestas conversacionales más un JSON grande
+                "temperature": 0.2, # Ligeramente más alto para explicaciones ricas
+                "num_predict": 800  # Más tokens para evitar que se corte a la mitad
             }
-        }, timeout=45)
+        }, timeout=60) # Timeout extendido por las respuestas más largas
         
-        response_data = r.json()
-        respuesta_total = response_data.get('response', '')
+        respuesta_total = r.json().get('response', '')
         
-        # 2. Extracción de Tareas
-        tareas_nuevas = []
-        match = re.search(r'```json\s*(\{.*?\})\s*```', respuesta_total, re.DOTALL | re.IGNORECASE)
+        tareas_creadas = 0
+        match = re.search(r'```json\s*(.*?)\s*```', respuesta_total, re.DOTALL)
         respuesta_limpia = respuesta_total
         
         if match:
             try:
-                parsed_json = json.loads(match.group(1))
-                tareas_nuevas = parsed_json.get("tareas", [])
-                respuesta_limpia = respuesta_total[:match.start()].strip() + "\n*(He creado tareas basándome en esto!)*" # Quitamos el bloque oscuro y dejamos aviso cute
-            except Exception:
-                pass
-        
-        # Asignar tareas extraídas (si las hay)
-        if tareas_nuevas:
-            for t in tareas_nuevas:
-                cat = str(t.get('categoria', 'programacion')).lower()
-                if cat == 'electronica':
-                    col = 'skill_electronica'
-                elif cat == 'logistica':
-                    col = 'skill_logistica'
-                else:
-                    col = 'skill_programacion'
-                    cat = 'programacion'
-                
-                mejor = db.execute(f'SELECT id FROM usuarios ORDER BY {col} DESC LIMIT 1').fetchone()
-                id_mejor = mejor['id'] if mejor else None
-                
-                db.execute('''
-                    INSERT INTO tareas (titulo, descripcion, categoria, peso, id_asignado)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (t.get('titulo', 'Sin titulo'), "Creado por Liosito PM", cat, t.get('peso', 3), id_mejor))
-            
-            db.commit()
-            
-        return jsonify({"respuesta": respuesta_limpia, "tareas_creadas": len(tareas_nuevas)})
-    
-    except requests.exceptions.Timeout:
-        return jsonify({"respuesta": "Mis servidores osito se quedaron pensando demasiado y el cohete se detuvo. ¡Prueba otra vez!"})
+                data_json = json.loads(match.group(1))
+                for t in data_json.get("tareas", []):
+                    cat = str(t.get('categoria', 'programacion')).lower()
+                    col = f"skill_{cat if cat in ['programacion', 'electronica', 'logistica'] else 'programacion'}"
+                    mejor = db.execute(f'SELECT id FROM usuarios ORDER BY {col} DESC LIMIT 1').fetchone()
+                    db.execute('INSERT INTO tareas (titulo, descripcion, categoria, peso, id_asignado) VALUES (?, ?, ?, ?, ?)',
+                               (t.get('titulo', 'Tarea'), t.get('descripcion', ''), cat, t.get('peso', 3), mejor['id'] if mejor else None))
+                db.commit()
+                tareas_creadas = len(data_json.get("tareas", []))
+                respuesta_limpia = respuesta_total.replace(match.group(0), f"\n\n🐻 **He organizado {tareas_creadas} tareas súper detalladas en el tablero.**")
+            except Exception as e:
+                print(f"Error parseando JSON: {e}")
+
+        return jsonify({"respuesta": respuesta_limpia, "tareas_creadas": tareas_creadas})
     except Exception as e:
-        print("Error en Ollama:", e)
-        return jsonify({"respuesta": "¡Ay! Tuve un error rarísimo al procesar tus dudas. Checa mis logs de Python."})
+        return jsonify({"respuesta": f"Error de conexión: {e}"})
 
 @app.route('/api/github/push', methods=['POST'])
 @login_required
