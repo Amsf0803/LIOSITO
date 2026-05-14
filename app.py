@@ -596,7 +596,7 @@ def start_ollama_if_needed():
         time.sleep(3) 
 
 if __name__ == '__main__':
-    ini_port = int(os.environ.get('PORT', 5000))
+    ini_port = int(os.environ.get('PORT', 5005))
     init_db()
     start_ollama_if_needed()
     app.run(debug=True, port=ini_port)
