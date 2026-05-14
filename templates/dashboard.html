@@ -19,60 +19,15 @@
             const btn = document.getElementById('themeToggleBtn');
             if(btn) btn.innerText = newTheme === 'dark' ? '☀️' : '🌙';
             
-            Chart.defaults.color = newTheme === 'dark' ? '#aaaaaa' : '#5a5a5a';
+            Chart.defaults.color = newTheme === 'dark' ? '#e8e4f0' : '#2e2e3a';
             for (let id in Chart.instances) {
                 Chart.instances[id].update();
             }
         }
+        
+        // Pass todos_usuarios safely to JS
+        const todosUsuarios = {{ todos_usuarios | tojson | safe }};
     </script>
-    <style>
-        /* Estilos del Modal de Detalles */
-        .modal-liosito {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 12px;
-            border: 1px solid var(--neon-cyan);
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
-            width: 90%; max-width: 600px;
-        }
-        .btn-neon {
-            background: transparent;
-            color: var(--neon-cyan);
-            border: 1px solid var(--neon-cyan);
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-family: 'Share Tech Mono', monospace;
-            transition: all 0.3s ease;
-        }
-        .btn-neon:hover {
-            background: var(--neon-cyan);
-            color: #000;
-            box-shadow: 0 0 10px var(--neon-cyan);
-        }
-        .btn-danger {
-            background: transparent;
-            color: #ff4444;
-            border: 1px solid #ff4444;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 20px;
-            font-family: 'Share Tech Mono', monospace;
-        }
-        .btn-danger:hover {
-            background: #ff4444;
-            color: white;
-            box-shadow: 0 0 10px #ff4444;
-        }
-    </style>
 </head>
 <body>
 
@@ -107,7 +62,10 @@
         </div>
 
         <div class="card">
-            <h2>⭐ Tus Skills</h2>
+            <h2 style="display:flex; justify-content:space-between; align-items:center;">
+                ⭐ Tus Skills
+                <button onclick="openSkillsModal()" class="btn-neon" style="padding: 4px 8px; font-size: 0.8rem;">✏️ Editar</button>
+            </h2>
             <canvas id="radarChart"></canvas>
         </div>
 
@@ -116,29 +74,51 @@
             <canvas id="lineChart"></canvas>
         </div>
 
+        <!-- Errores Frecuentes / Consejos Seniors -->
+        <div class="card">
+            <h2>💡 Consejos de Seniors y Errores</h2>
+            <div id="errores_list">
+                {% for e in errores %}
+                <div class="error-item">
+                    <strong>{{ e.titulo }}</strong>
+                    <span>Por: {{ e.autor }} | {{ e.fecha.split(' ')[0] }}</span><br>
+                    {{ e.descripcion[:100] }}{% if e.descripcion|length > 100 %}...{% endif %}
+                </div>
+                {% else %}
+                <p style="color:var(--text-light); font-size:0.9rem;">No hay registros de errores frecuentes aún.</p>
+                {% endfor %}
+            </div>
+        </div>
+
         <div class="card" style="border-color: var(--neon-purple); background: var(--card-bg);">
             <h2 style="font-family: 'Share Tech Mono', monospace; font-size:1.5rem; color:var(--neon-purple);">📚 CEREBRO LIOSITO [RAG]</h2>
             <p style="font-family: 'Share Tech Mono', monospace; font-size:1rem; margin-top:0; color:var(--text-light); border-bottom: 1px dashed var(--neon-purple); padding-bottom: 10px;">
                > REGISTROS_INDEXADOS: <strong id="kb_count" style="color:var(--neon-cyan);">{{ total_kb }}</strong>
             </p>
             
-            <div style="background: rgba(188, 19, 254, 0.05); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid rgba(188, 19, 254, 0.4); box-shadow: inset 0 0 10px rgba(188, 19, 254, 0.1);">
-                <h4 style="margin:0 0 10px 0; font-size:1rem; color:var(--neon-purple); font-family: 'Share Tech Mono', monospace;">> [1] SINCRONIZAR_GITHUB</h4>
-                <input type="text" id="rag_repo" placeholder="> Usuario/Repositorio" value="{{ user.github_user }}/liosito-repo" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-purple);">
-                <input type="password" id="rag_pat" placeholder="> Personal Access Token (PAT)" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-purple);">
-                <button class="btn-secondary" onclick="syncGithubRAG()" id="btn_sync_rag" style="width: 100%; padding:10px; font-size:0.9rem; font-family: 'Share Tech Mono', monospace;">[ INICIAR_ESCANEO ]</button>
+            <div class="rag-section purple">
+                <h4 style="margin:0 0 10px 0; font-size:1rem; color:var(--neon-purple); font-family: 'Share Tech Mono', monospace;">> [1] SINCRONIZAR_GITHUB (NUEVO)</h4>
+                <input type="text" id="rag_repo" placeholder="> Usuario/Repositorio" value="{{ user.github_user }}/liosito-repo" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace;">
+                <input type="password" id="rag_pat" placeholder="> Personal Access Token (PAT)" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace;">
+                <button class="btn-neon" onclick="syncGithubRAG()" id="btn_sync_rag" style="width: 100%; padding:10px; font-size:0.9rem;">[ INICIAR_ESCANEO ]</button>
                 <div id="rag_status" style="font-family: 'Share Tech Mono', monospace; font-size:0.85rem; margin-top:10px; min-height: 20px;"></div>
             </div>
 
-            <div style="background: rgba(0, 243, 255, 0.05); padding:15px; border-radius:12px; border:1px solid rgba(0, 243, 255, 0.4); box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.1);">
+            <div class="rag-section cyan">
                 <h4 style="margin:0 0 10px 0; font-size:1rem; color:var(--neon-cyan); font-family: 'Share Tech Mono', monospace;">> [2] INYECCIÓN_MANUAL</h4>
-                <input type="text" id="manual_title" placeholder="> Título (ej. Error en MySQL)" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-cyan);">
-                <textarea id="manual_content" placeholder="> Escribe el consejo o manual aquí..." style="width: 100%; height:70px; margin-bottom:8px; padding:10px; font-size:0.9rem; line-height:1.2; font-family: 'Share Tech Mono', monospace; background:rgba(0,0,0,0.5); color:var(--neon-cyan); border:1px solid var(--neon-cyan);"></textarea>
+                <input type="text" id="manual_title" placeholder="> Título (ej. Error en MySQL)" style="width: 100%; margin-bottom:8px; padding:10px; font-family: 'Share Tech Mono', monospace;">
+                <textarea id="manual_content" placeholder="> Escribe el consejo o manual aquí..." style="width: 100%; height:70px; margin-bottom:8px; padding:10px; font-size:0.9rem; line-height:1.2; font-family: 'Share Tech Mono', monospace;"></textarea>
+                <select id="manual_categoria" style="width: 100%; margin-bottom:8px; font-family: 'Share Tech Mono', monospace;">
+                    <option value="general">Categoría: General</option>
+                    <option value="programacion">Programación</option>
+                    <option value="electronica">Electrónica</option>
+                    <option value="logistica">Logística</option>
+                </select>
                 <label style="display:flex; align-items:center; gap:5px; font-size:0.85rem; margin-bottom:10px; cursor:pointer; font-family: 'Share Tech Mono', monospace; color:var(--text-light);">
-                    <input type="checkbox" id="manual_is_error" style="width:auto; margin:0;">
-                    [X] Marcar como 'Log de Error Común'
+                    <input type="checkbox" id="manual_is_error" style="width:auto; margin:0;" checked>
+                    [X] Guardar como 'Consejo Senior / Error'
                 </label>
-                <button onclick="addManualKB()" id="btn_manual_rag" style="width: 100%; padding:10px; font-size:0.9rem; background-color:var(--neon-cyan); color:#000; font-family: 'Share Tech Mono', monospace; border:1px solid var(--neon-cyan);">[ GUARDAR_REGISTRO ]</button>
+                <button onclick="addManualKB()" id="btn_manual_rag" style="width: 100%; padding:10px; font-size:0.9rem; background-color:var(--neon-cyan); color:#000; border:none; font-family: 'Share Tech Mono', monospace;">[ GUARDAR_REGISTRO ]</button>
                 <div id="manual_status" style="font-family: 'Share Tech Mono', monospace; font-size:0.85rem; margin-top:10px; min-height: 20px;"></div>
             </div>
 
@@ -147,9 +127,12 @@
 
     <div class="column-right">
         <div class="card">
-            <h2 style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="display: flex; justify-content: space-between; align-items: center; flex-wrap:wrap; gap:10px;">
                 <span>📋 Tablero de Tareas</span>
-                <span style="font-size: 0.9rem; font-weight: normal; color:var(--text-light)">Pídele a Liosito que asigne trabajo</span>
+                <div>
+                    <span style="font-size: 0.9rem; font-weight: normal; color:var(--text-light); margin-right: 10px;">Pídele a Liosito o...</span>
+                    <button class="btn-success" onclick="openNuevaTareaModal()" style="width: auto; padding: 6px 12px; font-size: 0.9rem;">➕ Crear Tarea</button>
+                </div>
             </h2>
             <div class="task-list">
                 {% for t in tareas %}
@@ -161,17 +144,17 @@
                         {% if t.id_asignado %}
                             <span class="badge badge-user">👤 {{ t.nombre_usuario }}</span>
                         {% else %}
-                            <span class="badge badge-user">👤 Sin asignar</span>
+                            <span class="badge badge-user" style="background:#e0a020; color:white;">👤 Sin asignar</span>
                         {% endif %}
                     </div>
                     
-                    <div class="task-actions" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button onclick="verDetalle('{{ t.titulo | escape }}', '{{ t.descripcion | escape }}')" class="btn-neon" style="flex: 1;">
+                    <div class="task-actions">
+                        <button onclick="verDetalle('{{ t.titulo | escape }}', '{{ t.descripcion | escape }}')" class="btn-neon" style="flex: 1; min-width:100px; text-align:center;">
                             LEER INSTRUCCIONES
                         </button>
                         
                         {% if t.estado != 'completado' and t.id_asignado == user.id %}
-                            <button onclick="completarTarea({{ t.id }})" style="padding:8px; font-size:0.8rem; background: var(--success); color: white; border: none; border-radius: 5px; flex: 1;">✅ Completar</button>
+                            <button onclick="completarTarea({{ t.id }})" class="btn-success" style="padding:8px; font-size:0.8rem; flex: 1;">✅ Completar</button>
                             <button class="btn-secondary" onclick="openGithubModal({{ t.id }})" style="padding:8px; font-size:0.8rem; flex: 1;">🚀 Subir Avance</button>
                         {% elif t.estado == 'completado' %}
                             <div style="width: 100%; text-align: center; font-weight:bold; color:var(--success); margin-top: 5px;">✓ Tarea completada</div>
@@ -179,7 +162,7 @@
                     </div>
                 </div>
                 {% else %}
-                <p>No hay tareas disponibles en este momento. ¡Dile a Liosito que organice algo!</p>
+                <p>No hay tareas disponibles en este momento. ¡Dile a Liosito que organice algo o agrégala tú mismo!</p>
                 {% endfor %}
             </div>
         </div>
@@ -196,7 +179,7 @@
         <button onclick="toggleChat()" style="background:transparent; border:none; color:white; font-size:1.2rem; width:auto; padding:0; margin-left:auto; cursor:pointer;">×</button>
     </div>
     <div class="chat-body" id="chatBody">
-        <div class="message bot">¡Hola! Soy Liosito. Pregúntame sobre el código de LIA o pídeme que asigne tareas. 🐻💻</div>
+        <div class="message bot">¡Hola! Soy Liosito. Pregúntame sobre el código de LIA, los errores frecuentes o pídeme que asigne tareas. 🐻💻</div>
     </div>
     <div class="chat-input">
         <input type="text" id="chatInput" placeholder="Escribe tu mensaje..." onkeypress="if(event.key === 'Enter') sendMessage()">
@@ -204,51 +187,207 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="githubModal">
+<!-- Modal Detalles Tarea -->
+<div id="modalDetalle" class="modal-overlay">
     <div class="modal">
-        <h2>🚀 Subir Avance a GitHub</h2>
-        <p>Proporciona el código de tu avance y tu PAT para subirlo a una nueva rama.</p>
-        <input type="hidden" id="gh_tarea_id">
-        <input type="text" id="gh_repo" placeholder="Formato: usuario/repositorio" value="{{ user.github_user }}/liosito-repo" required style="width: 100%; margin-bottom: 10px; padding: 10px;">
-        <input type="password" id="gh_pat" placeholder="Personal Access Token (PAT)" required style="width: 100%; margin-bottom: 10px; padding: 10px;">
-        <textarea id="gh_codigo" placeholder="Pega aquí el código que desarrollaste..." style="width: 100%; height: 100px; margin-bottom: 10px; padding: 10px;"></textarea>
-        <div style="display:flex; gap:10px;">
-            <button onclick="submitGithub()" style="padding: 10px 20px;">Subir y Crear Rama</button>
-            <button class="btn-secondary" onclick="closeGithubModal()" style="padding: 10px 20px;">Cancelar</button>
+        <h2 id="modalTitulo" style="color: var(--neon-cyan); margin-top: 0;"></h2>
+        <p id="modalDesc" style="white-space: pre-wrap; color: var(--text-main); font-size: 1rem; line-height: 1.5; background: var(--bg-color); padding: 15px; border-radius: 8px; border-left: 3px solid var(--neon-cyan);"></p>
+        <div style="text-align: right; margin-top: 15px;">
+            <button onclick="cerrarModal('modalDetalle')" class="btn-danger-outline">CERRAR</button>
         </div>
-        <p id="gh_status" style="font-size:0.9rem; margin-top:10px;"></p>
     </div>
 </div>
 
-<div id="modalDetalle" class="modal-liosito" style="display:none;">
-    <div class="modal-content">
-        <h2 id="modalTitulo" style="color: var(--neon-cyan); margin-top: 0;"></h2>
-        <p id="modalDesc" style="font-family: 'Share Tech Mono', monospace; white-space: pre-wrap; color: var(--text-main); font-size: 1.1rem; line-height: 1.5; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border-left: 3px solid var(--neon-cyan);"></p>
-        <div style="text-align: right;">
-            <button onclick="cerrarModal()" class="btn-danger">CERRAR DETALLES</button>
+<!-- Modal Editar Skills -->
+<div id="modalSkills" class="modal-overlay">
+    <div class="modal">
+        <h2>✏️ Editar Mis Skills</h2>
+        <p style="color:var(--text-light); font-size:0.9rem; margin-bottom:20px;">Liosito usa estas habilidades para saber qué tareas asignarte.</p>
+        
+        <label>Programación (<span id="val_prog">{{ user.skill_programacion }}</span>/10)</label>
+        <input type="range" id="sk_prog" min="1" max="10" value="{{ user.skill_programacion }}" oninput="document.getElementById('val_prog').innerText=this.value">
+        
+        <label>Electrónica (<span id="val_elec">{{ user.skill_electronica }}</span>/10)</label>
+        <input type="range" id="sk_elec" min="1" max="10" value="{{ user.skill_electronica }}" oninput="document.getElementById('val_elec').innerText=this.value">
+        
+        <label>Logística (<span id="val_log">{{ user.skill_logistica }}</span>/10)</label>
+        <input type="range" id="sk_log" min="1" max="10" value="{{ user.skill_logistica }}" oninput="document.getElementById('val_log').innerText=this.value">
+        
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button onclick="saveSkills()" style="flex:1;">Guardar Skills</button>
+            <button class="btn-danger-outline" onclick="cerrarModal('modalSkills')" style="flex:1;">Cancelar</button>
         </div>
+    </div>
+</div>
+
+<!-- Modal Crear Tarea Manual -->
+<div id="modalNuevaTarea" class="modal-overlay">
+    <div class="modal" style="max-width:600px; max-height: 90vh; overflow-y: auto;">
+        <h2>➕ Agregar Tarea Manual</h2>
+        <input type="text" id="nt_titulo" placeholder="Título de la tarea">
+        <textarea id="nt_desc" placeholder="Descripción y pasos a seguir..." style="height:80px;"></textarea>
+        
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+            <div style="flex:1;">
+                <label style="font-size:0.85rem; color:var(--text-light);">Categoría</label>
+                <select id="nt_cat" onchange="renderUserList()">
+                    <option value="programacion">Programación</option>
+                    <option value="electronica">Electrónica</option>
+                    <option value="logistica">Logística</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label style="font-size:0.85rem; color:var(--text-light);">Peso (Puntos): <span id="nt_peso_val">5</span></label>
+                <input type="range" id="nt_peso" min="1" max="10" value="5" oninput="document.getElementById('nt_peso_val').innerText=this.value" style="margin-top:5px;">
+            </div>
+        </div>
+
+        <label style="font-size:0.85rem; color:var(--text-light); margin-bottom:5px; display:block;">Asignar a:</label>
+        <div id="nt_users_list" style="max-height: 200px; overflow-y: auto; background: var(--bg-color); padding: 10px; border-radius: 10px; border: 1px solid var(--card-border); margin-bottom: 15px;">
+            <!-- Renderizado desde JS -->
+        </div>
+        <input type="hidden" id="nt_selected_user">
+
+        <div style="display:flex; gap:10px;">
+            <button class="btn-success" onclick="saveNuevaTarea()" style="flex:1;">Crear Tarea</button>
+            <button class="btn-danger-outline" onclick="cerrarModal('modalNuevaTarea')" style="flex:1;">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal GitHub Resync (Sin pedir PAT) -->
+<div class="modal-overlay" id="githubModal">
+    <div class="modal">
+        <h2>🚀 Subir Avance (Re-Sync)</h2>
+        <p style="font-size:0.9rem; color:var(--text-light);">Selecciona el repositorio de la base de conocimiento para re-escanearlo. (No necesitas PAT, usaré el acceso guardado/público).</p>
+        <input type="hidden" id="gh_tarea_id">
+        
+        <select id="gh_repo_select" style="margin-bottom: 15px;">
+            {% for r in repos %}
+            <option value="{{ r.repo }}">{{ r.repo }} (Rama: {{ r.rama }})</option>
+            {% else %}
+            <option value="">No hay repositorios indexados. Usa RAG primero.</option>
+            {% endfor %}
+        </select>
+
+        <div style="display:flex; gap:10px;">
+            <button class="btn-success" onclick="submitGithubResync()" style="flex:1;">Confirmar Sincronización</button>
+            <button class="btn-danger-outline" onclick="closeGithubModal()" style="flex:1;">Cancelar</button>
+        </div>
+        <p id="gh_status" style="font-size:0.9rem; margin-top:10px; text-align:center;"></p>
     </div>
 </div>
 
 <script>
-// --- MODAL DE DETALLES ---
+// --- UTILIDADES MODALES ---
+function cerrarModal(id) {
+    document.getElementById(id).classList.remove('active');
+}
+document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', function(e) {
+        if (e.target === this) cerrarModal(this.id);
+    });
+});
+
+// --- DETALLES ---
 function verDetalle(titulo, desc) {
     document.getElementById('modalTitulo').innerText = titulo;
-    // Manejar casos donde la IA no manda descripción
-    document.getElementById('modalDesc').innerText = desc ? desc : "No hay instrucciones detalladas para esta tarea. Habla con Liosito si tienes dudas.";
-    document.getElementById('modalDetalle').style.display = 'flex';
+    document.getElementById('modalDesc').innerText = desc ? desc : "No hay instrucciones detalladas para esta tarea.";
+    document.getElementById('modalDetalle').classList.add('active');
 }
 
-function cerrarModal() {
-    document.getElementById('modalDetalle').style.display = 'none';
+// --- SKILLS ---
+function openSkillsModal() {
+    document.getElementById('modalSkills').classList.add('active');
 }
-
-// Cerrar modal al hacer clic fuera del contenido
-document.getElementById('modalDetalle').addEventListener('click', function(e) {
-    if (e.target === this) {
-        cerrarModal();
+async function saveSkills() {
+    const p = document.getElementById('sk_prog').value;
+    const e = document.getElementById('sk_elec').value;
+    const l = document.getElementById('sk_log').value;
+    
+    const res = await fetch('/api/usuario/skills', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({skill_programacion: p, skill_electronica: e, skill_logistica: l})
+    });
+    if(res.ok) {
+        window.location.reload();
+    } else {
+        alert("Error al actualizar skills");
     }
-});
+}
+
+// --- CREAR TAREA MANUAL ---
+function openNuevaTareaModal() {
+    document.getElementById('nt_titulo').value = '';
+    document.getElementById('nt_desc').value = '';
+    document.getElementById('nt_peso').value = 5;
+    document.getElementById('nt_peso_val').innerText = '5';
+    document.getElementById('nt_selected_user').value = '';
+    renderUserList();
+    document.getElementById('modalNuevaTarea').classList.add('active');
+}
+
+function selectUser(id, el) {
+    document.getElementById('nt_selected_user').value = id;
+    document.querySelectorAll('.user-card-select').forEach(card => card.classList.remove('selected'));
+    el.classList.add('selected');
+}
+
+function renderUserList() {
+    const cat = document.getElementById('nt_cat').value; // programacion, electronica, logistica
+    const list = document.getElementById('nt_users_list');
+    list.innerHTML = '';
+    
+    // Ordenar usuarios de mayor a menor skill en la categoría seleccionada
+    const sortedUsers = [...todosUsuarios].sort((a, b) => b['skill_' + cat] - a['skill_' + cat]);
+    
+    sortedUsers.forEach(u => {
+        const val = u['skill_' + cat];
+        let badge = '';
+        if(val >= 7) badge = '<span class="badge-recomendado">✅ Recomendado</span>';
+        else if(val >= 4) badge = '<span class="badge-aceptable">🟡 Aceptable</span>';
+        else badge = '<span class="badge-no-recom">❌ No recomendado</span>';
+        
+        const isSelected = document.getElementById('nt_selected_user').value == u.id;
+        
+        const d = document.createElement('div');
+        d.className = 'user-card-select' + (isSelected ? ' selected' : '');
+        d.onclick = function() { selectUser(u.id, this); };
+        d.innerHTML = `
+            <div class="username">👤 ${u.nombre_usuario} ${badge}</div>
+            <div class="skill-bar-wrap">
+                <div class="skill-bar-label"><span>Prog: ${u.skill_programacion}</span><span>Elec: ${u.skill_electronica}</span><span>Log: ${u.skill_logistica}</span></div>
+                <div style="display:flex; height:6px; border-radius:4px; overflow:hidden; margin-top:3px; background:var(--card-border);">
+                    <div style="width:${(u.skill_programacion/10)*33}%; background:var(--neon-purple);"></div>
+                    <div style="width:${(u.skill_electronica/10)*33}%; background:var(--neon-cyan);"></div>
+                    <div style="width:${(u.skill_logistica/10)*33}%; background:var(--accent);"></div>
+                </div>
+            </div>
+        `;
+        list.appendChild(d);
+    });
+}
+
+async function saveNuevaTarea() {
+    const tit = document.getElementById('nt_titulo').value;
+    const desc = document.getElementById('nt_desc').value;
+    const cat = document.getElementById('nt_cat').value;
+    const peso = document.getElementById('nt_peso').value;
+    const asig = document.getElementById('nt_selected_user').value;
+    
+    if(!tit) { alert("El título es obligatorio"); return; }
+    
+    const res = await fetch('/api/tarea/crear', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({titulo: tit, descripcion: desc, categoria: cat, peso: peso, id_asignado: asig})
+    });
+    
+    if(res.ok) window.location.reload();
+    else alert("Error al crear la tarea");
+}
+
 </script>
 
 <script>
@@ -257,11 +396,12 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
         const btn = document.getElementById('themeToggleBtn');
         if(btn) btn.innerText = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
         if(document.documentElement.getAttribute('data-theme') === 'dark') {
-            Chart.defaults.color = '#aaaaaa';
+            Chart.defaults.color = '#e8e4f0';
+        } else {
+            Chart.defaults.color = '#2e2e3a';
         }
     });
 
-    // Configuración Chart.js
     Chart.defaults.font.family = 'Quicksand';
     
     // Radar Chart - Skills
@@ -271,18 +411,17 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
         data: {
             labels: ['Programación', 'Electrónica', 'Logística'],
             datasets: [{
-                label: 'Nivel',
+                label: 'Nivel Actual',
                 data: [{{ user.skill_programacion }}, {{ user.skill_electronica }}, {{ user.skill_logistica }}],
-                backgroundColor: 'rgba(255, 182, 193, 0.4)',
-                borderColor: '#ffb6c1',
-                pointBackgroundColor: '#ffb6c1',
+                backgroundColor: 'rgba(201, 126, 178, 0.4)', // var(--primary) with opacity
+                borderColor: '#c97eb2',
+                pointBackgroundColor: '#8b44b8', // var(--neon-purple)
                 borderWidth: 2
             }]
         },
         options: {
-            scales: {
-                r: { suggestedMin: 0, suggestedMax: 10, ticks: {stepSize: 2} }
-            }
+            scales: { r: { suggestedMin: 0, suggestedMax: 10, ticks: {stepSize: 2, backdropColor: 'transparent'} } },
+            plugins: { legend: { display: false } }
         }
     });
 
@@ -295,31 +434,24 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
             datasets: [{
                 label: 'Puntos Acumulados',
                 data: {{ hist_data | tojson }},
-                borderColor: '#add8e6',
-                backgroundColor: 'rgba(173, 216, 230, 0.2)',
+                borderColor: '#7eb8c9', // var(--secondary)
+                backgroundColor: 'rgba(126, 184, 201, 0.2)',
                 tension: 0.4,
                 fill: true
             }]
         },
-        options: {
-            scales: {
-                y: { beginAtZero: true }
-            }
-        }
+        options: { scales: { y: { beginAtZero: true } } }
     });
 
     // Funciones Tareas
     async function completarTarea(id) {
-        if(!confirm("¿Seguro que completaste esta tarea?")) return;
+        if(!confirm("¿Seguro que completaste esta tarea? Asegúrate de haber subido avances o guardado en la Base de Conocimiento.")) return;
         const res = await fetch(`/api/tarea/completar/${id}`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'}
         });
-        if(res.ok) {
-            window.location.reload();
-        } else {
-            alert("Error completando la tarea.");
-        }
+        if(res.ok) window.location.reload();
+        else alert("Error completando la tarea.");
     }
 
     // Funciones Chatbot
@@ -341,8 +473,7 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
         appendMessage(text, 'user');
         input.value = '';
 
-        // Spinner Liosito
-        const loaderId = appendMessage("pensando... 🐻", 'bot');
+        const loaderId = appendMessage('<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>', 'bot');
         
         try {
             const res = await fetch('/api/chat', {
@@ -352,13 +483,13 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
             });
             const data = await res.json();
             
-            document.getElementById(loaderId).innerText = data.respuesta;
+            document.getElementById(loaderId).innerHTML = data.respuesta.replace(/\n/g, '<br>');
             
             if(data.tareas_creadas && data.tareas_creadas > 0) {
-                setTimeout(() => window.location.reload(), 3000); // Darle tiempo al usuario de leer antes de recargar
+                setTimeout(() => window.location.reload(), 3500); 
             }
         } catch(e) {
-            document.getElementById(loaderId).innerText = "Ups, hubo un problema conectando con mi cerebro Ollama.";
+            document.getElementById(loaderId).innerText = "Ups, problema conectando con el oráculo.";
         }
     }
 
@@ -366,7 +497,7 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
         const body = document.getElementById('chatBody');
         const d = document.createElement('div');
         d.className = `message ${type}`;
-        d.innerText = text;
+        d.innerHTML = text; // allow HTML for dots and <br>
         
         const id = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
         d.id = id;
@@ -376,11 +507,16 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
         return id;
     }
 
-    // Modal GitHub
+    // Modal GitHub Resync (Sin pedir PAT de nuevo)
     function openGithubModal(tarea_id) {
         document.getElementById('gh_tarea_id').value = tarea_id;
         document.getElementById('gh_status').innerText = "";
-        document.getElementById('gh_codigo').value = "";
+        
+        const select = document.getElementById('gh_repo_select');
+        if(select.options.length === 0 || !select.options[0].value) {
+            alert("No hay repositorios configurados en LIOSITO. Ve a CEREBRO RAG para indexar uno primero.");
+            return;
+        }
         document.getElementById('githubModal').classList.add('active');
     }
 
@@ -388,31 +524,26 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
         document.getElementById('githubModal').classList.remove('active');
     }
 
-    async function submitGithub() {
-        const tid = document.getElementById('gh_tarea_id').value;
-        const repo = document.getElementById('gh_repo').value;
-        const pat = document.getElementById('gh_pat').value;
-        const codigo = document.getElementById('gh_codigo').value;
-        const btn = document.querySelector('#githubModal button');
+    async function submitGithubResync() {
+        const repo = document.getElementById('gh_repo_select').value;
+        const btn = document.querySelector('#githubModal .btn-success');
         
-        if(!pat || !codigo) {
-            alert("No olvides tu código y PAT");
-            return;
-        }
+        if(!repo) return;
 
         btn.disabled = true;
-        document.getElementById('gh_status').innerHTML = "Subiendo archivo... 🚀";
+        document.getElementById('gh_status').innerHTML = "Re-sincronizando conocimiento... 🚀";
         
         try {
-            const res = await fetch('/api/github/push', {
+            // Nota: endpoint asume repo configurado, pide pull indirecto
+            const res = await fetch(`/api/conocimiento/resync/${encodeURIComponent(repo)}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({tarea_id: tid, repositorio: repo, github_pat: pat, codigo_avanzado: codigo})
+                body: JSON.stringify({}) // Sin PAT explícito
             });
             
             const data = await res.json();
             if(data.success) {
-                document.getElementById('gh_status').innerHTML = `¡Éxito! Rama creada: <b style="color:var(--neon-cyan)">${data.branch}</b>`;
+                document.getElementById('gh_status').innerHTML = `<span style="color:var(--success)">¡Éxito! ${data.importados} archivos actualizados en LIOSITO.</span>`;
                 setTimeout(closeGithubModal, 3000);
             } else {
                 document.getElementById('gh_status').innerHTML = `<span class="error">${data.error}</span>`;
@@ -430,8 +561,8 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
         const btn = document.getElementById('btn_sync_rag');
         const status = document.getElementById('rag_status');
 
-        if(!repo || !pat) {
-            status.innerHTML = "<span class='error'>> ERROR: REPO O PAT NO DEFINIDOS</span>";
+        if(!repo) {
+            status.innerHTML = "<span class='error'>> ERROR: REPO NO DEFINIDO</span>";
             return;
         }
 
@@ -446,7 +577,8 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
             });
             const data = await res.json();
             if(data.success) {
-                status.innerHTML = `<span style="color:var(--neon-cyan)">> ÉXITO_SINCRONIZACIÓN: [${data.importados} BLOQUES]</span>`;
+                status.innerHTML = `<span style="color:var(--success)">> ÉXITO_SINCRONIZACIÓN: [${data.importados} BLOQUES EN RAMA ${data.rama}]</span>`;
+                document.getElementById('rag_pat').value = ''; // clean pat
                 setTimeout(() => window.location.reload(), 2000);
             } else {
                 status.innerHTML = `<span class='error'>> ERROR_VÍNCULO: ${data.error}</span>`;
@@ -461,6 +593,7 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
         const titulo = document.getElementById('manual_title').value;
         const content = document.getElementById('manual_content').value;
         const isError = document.getElementById('manual_is_error').checked;
+        const cat = document.getElementById('manual_categoria').value;
         const btn = document.getElementById('btn_manual_rag');
         const status = document.getElementById('manual_status');
 
@@ -476,13 +609,13 @@ document.getElementById('modalDetalle').addEventListener('click', function(e) {
             const res = await fetch('/api/conocimiento/manual', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({titulo: titulo, contenido: content, es_error: isError})
+                body: JSON.stringify({titulo: titulo, contenido: content, es_error: isError, categoria: cat})
             });
             const data = await res.json();
             if(data.success) {
                 document.getElementById('manual_title').value = '';
                 document.getElementById('manual_content').value = '';
-                status.innerHTML = `<span style="color:var(--neon-cyan)">> TRANSFERENCIA_COMPLETA: [OK]</span>`;
+                status.innerHTML = `<span style="color:var(--success)">> TRANSFERENCIA_COMPLETA: [OK]</span>`;
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 status.innerHTML = `<span class='error'>> ERROR_ESCRITURA_RAG</span>`;
